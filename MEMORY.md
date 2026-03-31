@@ -1,7 +1,7 @@
 # MEMORY — fail2ban + ExaFS Integration Project
 
 ## Datum poslední aktualizace
-2026-03-23
+2026-03-31
 
 ## Pracovní adresář
 `/Users/adamec/Moje/claude/fail2ban/`
@@ -31,6 +31,10 @@ ExaFS pak blokuje IP na úrovni BGP sítě — ne jen lokálně na hostiteli.
 | Získat JWT token | GET | `/api/v3/auth` |
 | Vytvořit RTBH pravidlo | POST | `/api/v3/rules/rtbh` |
 | Smazat RTBH pravidlo | DELETE | `/api/v3/rules/rtbh/{rule_id}` |
+
+> **⚠️ OPRAVENÁ CHYBA (2026-03-31):** Původní kód neměl `/api/v3/` prefix v URL endpointů.
+> Volání šla na `/auth`, `/rules/rtbh` místo správných `/api/v3/auth`, `/api/v3/rules/rtbh`.
+> Server vracel prázdnou/HTML odpověď → `JSONDecodeError: Expecting value: line 1 column 1`.
 
 **Autentizace:**
 - Header pro token: `x-api-key: {api_key}`

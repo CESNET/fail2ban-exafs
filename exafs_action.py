@@ -274,7 +274,7 @@ def get_jwt_token(exafs_url: str, api_key: str) -> str:
     try:
         resp = _do_request(
             "GET",
-            f"{exafs_url}/auth",
+            f"{exafs_url}/api/v3/auth",
             token_getter=None,           # no auth header for this call
             headers={"x-api-key": api_key},
         )
@@ -283,9 +283,15 @@ def get_jwt_token(exafs_url: str, api_key: str) -> str:
         log.error("Failed to obtain JWT token: %s", exc)
         sys.exit(1)
 
-    token = resp.json().get("token")
+    try:
+        token = resp.json().get("token")
+    except (json.JSONDecodeError, ValueError) as exc:
+        log.error("ExaFS /api/v3/auth returned non-JSON response (status %d): %s — body: %.200s",
+                  resp.status_code, exc, resp.text)
+        sys.exit(1)
+
     if not token:
-        log.error("ExaFS /auth response did not contain a token")
+        log.error("ExaFS /api/v3/auth response did not contain a token — body: %.200s", resp.text)
         sys.exit(1)
 
     TOKEN_CACHE_FILE.write_text(
@@ -386,7 +392,7 @@ def ban(ip_str: str, bantime: int, exafs_url: str, api_key: str,
     try:
         resp = _do_request(
             "POST",
-            f"{exafs_url}/rules/rtbh",
+            f"{exafs_url}/api/v3/rules/rtbh",
             token_getter=token_getter,
             headers={"Content-Type": "application/json"},
             json=payload,
@@ -406,9 +412,15 @@ def ban(ip_str: str, bantime: int, exafs_url: str, api_key: str,
         log.error("ExaFS error banning %s: %s — %s", ip_str, exc, resp.text)
         sys.exit(1)
 
-    rule_id = resp.json().get("rule", {}).get("id")
+    try:
+        rule_id = resp.json().get("rule", {}).get("id")
+    except (json.JSONDecodeError, ValueError) as exc:
+        log.error("ExaFS /api/v3/rules/rtbh returned non-JSON response (status %d): %s — body: %.200s",
+                  resp.status_code, exc, resp.text)
+        sys.exit(1)
+
     if rule_id is None:
-        log.error("ExaFS did not return a rule id for %s", ip_str)
+        log.error("ExaFS did not return a rule id for %s — body: %.200s", ip_str, resp.text)
         sys.exit(1)
 
     with _rules_lock() as lf:
@@ -449,7 +461,7 @@ def unban(ip_str: str, exafs_url: str, api_key: str, dry_run: bool = False):
     try:
         resp = _do_request(
             "DELETE",
-            f"{exafs_url}/rules/rtbh/{rule_id}",
+            f"{exafs_url}/api/v3/rules/rtbh/{rule_id}",
             token_getter=token_getter,
         )
     except RequestException as exc:
