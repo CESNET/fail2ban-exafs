@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Runtime data (nesmí být v repozitáři — obsahuje tokeny a rule ID)
+/var/lib/fail2ban/exafs/
+
+# Lokální konfigurace s API klíčem — NIKDY necommitovat!
+exafs.cfg
+*.cfg
+!exafs.cfg.example
+
+# PDF (generuje se ze zdrojů)
+# exafs_action_documentation.pdf  # odkomentuj pokud PDF nechceš commitovat

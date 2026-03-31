@@ -1,0 +1,20 @@
+# ExaFS fail2ban integration — konfigurační soubor
+# Zkopírujte jako /etc/fail2ban/exafs.cfg a vyplňte hodnoty.
+# Soubor by měl být čitelný pouze rootem:
+#   chmod 600 /etc/fail2ban/exafs.cfg
+
+[exafs]
+
+# URL ExaFS serveru (bez lomítka na konci)
+url = https://exafs.example.com
+
+# API klíč vygenerovaný v ExaFS (Administration → API keys)
+api_key = VASE_API_KEY_ZDE
+
+# ID komunity RTBH nakonfigurované v ExaFS
+# Zjistíte v ExaFS pod Administration → Communities
+community = 1
+
+# Whitelist soubor — adresy a sítě, které NIKDY nebudou blokovány
+# (volitelné; pokud soubor neexistuje, whitelist se přeskočí)
+whitelist_file = /etc/fail2ban/exafs-whitelist.conf

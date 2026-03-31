@@ -1,0 +1,336 @@
+.\" Man page for exafs_action
+.\" Format: groff man
+.\" Installation: cp exafs_action.1 /usr/local/share/man/man1/
+.\"               gzip /usr/local/share/man/man1/exafs_action.1
+.\"               mandb
+.TH EXAFS_ACTION 1 "2025" "1.0" "fail2ban + ExaFS Integration"
+
+.SH NAME
+exafs_action \- fail2ban action to block IP addresses via ExaFS BGP RTBH
+
+.SH SYNOPSIS
+.B exafs_action.py
+.B ban
+.I <ip>
+.I <bantime>
+.RB [ \-\-dry\-run ]
+.RB [ \-\-config
+.IR file ]
+.RB [ \-\-verbose ]
+.PP
+.B exafs_action.py
+.B unban
+.I <ip>
+.RB [ \-\-dry\-run ]
+.RB [ \-\-config
+.IR file ]
+.PP
+.B exafs_action.py
+.B list
+.PP
+.B exafs_action.py
+.B \-\-help
+
+.SH DESCRIPTION
+.B exafs_action.py
+is a Python script that integrates
+.B fail2ban
+with the
+.BR ExaFS " web application (CESNET)."
+It creates and removes BGP RTBH (Remotely Triggered Black Hole) rules
+via the ExaFS REST API, blocking malicious traffic at the network level
+rather than only locally on the host.
+.PP
+The script is intended to be called as a
+.B fail2ban action plugin
+(see the
+.B CONFIGURATION
+section), but it can also be run directly from the command line.
+
+.SH ACTIONS
+.TP
+.B ban \fIip\fR \fIbantime\fR
+Creates an RTBH rule in ExaFS for the specified IP address or network.
+.I bantime
+is the ban duration in seconds; it corresponds to the
+.B bantime
+value in the fail2ban configuration.
+The rule is created in ExaFS with an expiry time of
+.IR "now + bantime" .
+.TP
+.B unban \fIip\fR
+Deletes the RTBH rule in ExaFS for the specified IP address.
+The rule ID is read from the local storage file
+.IR /var/lib/fail2ban/exafs/rules.json .
+.TP
+.B list
+Prints all currently tracked bans (IP address and ExaFS rule ID)
+from the local
+.I rules.json
+file. Does not require a connection to ExaFS.
+
+.SH OPTIONS
+.TP
+.BI \-\-config " file"
+Path to the configuration file.
+Default:
+.IR /etc/fail2ban/exafs.cfg .
+.TP
+.B \-\-dry\-run
+Simulates the action without actually calling the ExaFS API. Logs what
+would be done. Useful for testing the configuration.
+.TP
+.B \-\-verbose
+Enables detailed debug output (DEBUG log level).
+.TP
+.B \-h ", " \-\-help
+Displays help and exits.
+
+.SH INPUT FORMATS
+The
+.I ip
+parameter accepts:
+.RS
+.PP
+IPv4 address (e.g.
+.IR 1.2.3.4 )
+.PP
+IPv4 network in CIDR notation (e.g.
+.IR 10.0.0.0/24 )
+.PP
+IPv6 address (e.g.
+.IR 2001:db8::1 )
+.PP
+IPv6 network in CIDR notation (e.g.
+.IR 2001:db8::/32 )
+.RE
+
+.SH CONFIGURATION
+The configuration file is in INI format and must contain an
+.BR [exafs] " section:"
+
+.RS
+.nf
+[exafs]
+url            = https://exafs.example.com
+api_key        = YOUR_API_KEY_HERE
+community      = 1
+whitelist_file = /etc/fail2ban/exafs-whitelist.conf
+.fi
+.RE
+.PP
+Default location:
+.IR /etc/fail2ban/exafs.cfg .
+.PP
+The file should be protected from reading by other users:
+.RS
+.B chmod 600 /etc/fail2ban/exafs.cfg
+.RE
+.PP
+.B Parameters:
+.TP
+.B url
+ExaFS server URL without a trailing slash.
+.TP
+.B api_key
+API key generated in ExaFS
+.RB ( Administration " -> " "API keys" ).
+.TP
+.B community
+Numeric ID of the RTBH community configured in ExaFS
+.RB ( Administration " -> " Communities ).
+.TP
+.B whitelist_file
+Path to the whitelist file (optional).
+Default:
+.IR /etc/fail2ban/exafs-whitelist.conf .
+If the file does not exist, no whitelist is applied and all bans proceed normally.
+
+.SH WHITELIST
+The whitelist file lists IP addresses and networks that are
+.B never
+blocked via ExaFS RTBH, regardless of fail2ban decisions.
+.PP
+.B Format:
+one entry per line, CIDR notation (IPv4 and IPv6).
+Lines beginning with
+.B #
+and blank lines are ignored.
+.PP
+Example
+.IR /etc/fail2ban/exafs-whitelist.conf :
+.RS
+.nf
+# Internal management network
+10.10.10.0/24
+
+# Trusted monitoring server
+203.0.113.10
+
+# IPv6 documentation prefix
+2001:db8::/32
+.fi
+.RE
+.PP
+The whitelist file is
+.B hot-reloaded
+on every ban action — changes take effect immediately without restarting fail2ban or the script.
+.PP
+The file should have restricted permissions:
+.RS
+.B chmod 600 /etc/fail2ban/exafs-whitelist.conf
+.RE
+
+.SH FAIL2BAN CONFIGURATION
+Install
+.B action.d/exafs.conf
+to
+.I /etc/fail2ban/action.d/exafs.conf
+and enable the action in
+.IR /etc/fail2ban/jail.local :
+.RS
+.nf
+[sshd]
+enabled  = true
+action   = exafs
+bantime  = 3600
+.fi
+.RE
+.PP
+To use a custom configuration file:
+.RS
+.nf
+[sshd]
+action = exafs[config=/etc/fail2ban/exafs-prod.cfg]
+.fi
+.RE
+
+.SH FILES
+.TP
+.I /etc/fail2ban/exafs.cfg
+Configuration file (URL, API key, community ID, optional whitelist path).
+.TP
+.I /etc/fail2ban/exafs-whitelist.conf
+Whitelist of IP addresses and networks that are never blocked.
+Hot-reloaded on change without service restart.
+.TP
+.I /etc/fail2ban/action.d/exafs.conf
+fail2ban action plugin.
+.TP
+.I /var/lib/fail2ban/exafs/token.json
+Cached JWT token (managed automatically).
+Permissions: 600.
+.TP
+.I /var/lib/fail2ban/exafs/rules.json
+Map of IP addresses to ExaFS rule IDs (managed automatically).
+.TP
+.I /var/lib/fail2ban/exafs/rules.lock
+File lock for concurrent access to rules.json.
+.TP
+.I /var/log/fail2ban-exafs.log
+Action log file.
+
+.SH EXAMPLES
+.PP
+Ban an IPv4 address for 1 hour:
+.RS
+.B exafs_action.py ban 1.2.3.4 3600
+.RE
+.PP
+Ban an IPv6 address for 24 hours:
+.RS
+.B exafs_action.py ban 2001:db8::1 86400
+.RE
+.PP
+Ban an entire network:
+.RS
+.B exafs_action.py ban 10.0.0.0/24 3600
+.RE
+.PP
+Remove a ban:
+.RS
+.B exafs_action.py unban 1.2.3.4
+.RE
+.PP
+List active bans:
+.RS
+.B exafs_action.py list
+.RE
+.PP
+Simulate a ban without calling the API:
+.RS
+.B exafs_action.py ban 1.2.3.4 3600 --dry-run
+.RE
+.PP
+Use a custom configuration file:
+.RS
+.B exafs_action.py --config /etc/exafs-test.cfg ban 1.2.3.4 3600
+.RE
+
+.SH DIAGNOSTICS
+The script logs to:
+.IR /var/log/fail2ban-exafs.log ,
+.B syslog
+(via
+.IR /dev/log )
+and
+.BR stderr .
+.PP
+On configuration error or ExaFS unavailability, the script exits with
+return code
+.B 1
+and writes an error message to the log.
+.PP
+Retry behaviour: transient network errors and HTTP 5xx/429 responses are
+retried up to 3 times with delays of 2, 4, and 8 seconds. An expired
+JWT token (HTTP 401) triggers automatic token renewal and one further
+attempt.
+
+.SH EXIT CODES
+.TP
+.B 0
+Success.
+.TP
+.B 1
+Error (bad configuration, ExaFS unreachable, retries exhausted).
+
+.SH DEPENDENCIES
+.TP
+.BR python3 " (>= 3.8)"
+.TP
+.BR requests " (>= 2.28.0)"
+Install with:
+.B pip3 install requests
+
+.SH SECURITY
+.PP
+The JWT token is stored in
+.I /var/lib/fail2ban/exafs/token.json
+with permissions 600 (readable by root only).
+.PP
+The configuration file containing the API key should have permissions 600:
+.RS
+.B chmod 600 /etc/fail2ban/exafs.cfg
+.RE
+.PP
+The API key is not passed as a command-line argument (which would make it
+visible in
+.BR ps " output),"
+but is read from the configuration file.
+
+.SH SEE ALSO
+.BR fail2ban (1),
+.BR fail2ban-client (1),
+.BR fail2ban-server (1)
+.PP
+ExaFS documentation:
+.I https://github.com/CESNET/exafs
+.PP
+ExaFS API documentation:
+.I https://exafs.docs.apiary.io/
+
+.SH AUTHOR
+Created for the fail2ban + ExaFS integration project.
+.PP
+ExaFS is an open-source project by CESNET, MIT license:
+.I https://github.com/CESNET/exafs
