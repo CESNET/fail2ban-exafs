@@ -12,5 +12,5 @@ exafs.cfg
 *.cfg
 !exafs.cfg.example
 
-# PDF (generuje se ze zdrojů)
-# exafs_action_documentation.pdf  # odkomentuj pokud PDF nechceš commitovat
+# Dokumentace (generuje se ze zdrojů)
+doc/
