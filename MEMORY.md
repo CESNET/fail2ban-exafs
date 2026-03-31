@@ -72,8 +72,8 @@ Rule ID je `response.json()["rule"]["id"]`.
 | `test_exafs_action.py` | Unit testy (41 passed) + integrační testy (opt-in) |
 | `requirements.txt` | Python závislosti (`requests`) |
 | `exafs_action.1` | Man page (groff formát) |
-| `exafs_action_documentation.pdf` | PDF dokumentace (EN) |
-| `generate_docs.py` | Generátor PDF dokumentace (reportlab) |
+| `doc/exafs_action_documentation.pdf` | PDF dokumentace (EN) — CESNET styl |
+| `doc/generate_docs.py` | Generátor PDF dokumentace (reportlab, CESNET brand) |
 | `MEMORY.md` | Tento soubor |
 
 ---
