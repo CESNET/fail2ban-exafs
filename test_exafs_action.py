@@ -596,7 +596,7 @@ class TestIntegration(unittest.TestCase):
 
     def test_07_whitelist_skips_ban(self):
         """Whitelistovaná IP nesmí být zablokována — API se nevolá."""
-        wl_file = os.path.join(cls.tmp.name, "wl.conf")
+        wl_file = os.path.join(self.__class__.tmp.name, "wl.conf")
         with open(wl_file, "w") as fh:
             fh.write(f"{self.TEST_IPV4}\n")
         wl = sut.WhitelistChecker(wl_file)
