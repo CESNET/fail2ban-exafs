@@ -14,3 +14,6 @@ exafs.cfg
 
 # Dokumentace (generuje se ze zdrojů)
 doc/
+
+# Project memory (local only)
+MEMORY.md
