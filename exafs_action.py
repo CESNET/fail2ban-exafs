@@ -23,6 +23,7 @@ import argparse
 import logging
 import logging.handlers
 import configparser
+import re
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional, Union
@@ -132,6 +133,9 @@ class WhitelistChecker:
         except ValueError:
             log.error("Neplatná IP adresa předaná do whitelistu: %s", ip_str)
             return False
+        # Normalize IPv4-mapped IPv6 (::ffff:x.x.x.x) to IPv4
+        if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
+            addr = addr.ipv4_mapped
         for net in self._networks:
             if addr in net:
                 log.info(
@@ -194,6 +198,16 @@ def load_config(config_file: str) -> configparser.ConfigParser:
         sys.exit(1)
     cfg.read(config_file)
     return cfg
+
+
+def _sanitize_response_body(text: str, max_len: int = 200) -> str:
+    """Sanitize response body for safe logging."""
+    sanitized = re.sub(r'[^\x20-\x7E]', '?', text[:max_len])
+    sanitized = re.sub(
+        r'(token|key|secret|password|authorization)["\s:=]+\S+',
+        r'\1=<REDACTED>', sanitized, flags=re.IGNORECASE,
+    )
+    return sanitized
 
 
 # ---------------------------------------------------------------------------
@@ -286,12 +300,13 @@ def get_jwt_token(exafs_url: str, api_key: str) -> str:
     try:
         token = resp.json().get("token")
     except (json.JSONDecodeError, ValueError) as exc:
-        log.error("ExaFS /api/v3/auth returned non-JSON response (status %d): %s — body: %.200s",
-                  resp.status_code, exc, resp.text)
+        log.error("ExaFS /api/v3/auth returned non-JSON response (status %d): %s — body: %s",
+                  resp.status_code, exc, _sanitize_response_body(resp.text))
         sys.exit(1)
 
     if not token:
-        log.error("ExaFS /api/v3/auth response did not contain a token — body: %.200s", resp.text)
+        log.error("ExaFS /api/v3/auth response did not contain a token — body: %s",
+                  _sanitize_response_body(resp.text))
         sys.exit(1)
 
     TOKEN_CACHE_FILE.write_text(
@@ -409,18 +424,19 @@ def ban(ip_str: str, bantime: int, exafs_url: str, api_key: str,
     try:
         resp.raise_for_status()
     except HTTPError as exc:
-        log.error("ExaFS error banning %s: %s — %s", ip_str, exc, resp.text)
+        log.error("ExaFS error banning %s: %s — %s", ip_str, exc, _sanitize_response_body(resp.text))
         sys.exit(1)
 
     try:
         rule_id = resp.json().get("rule", {}).get("id")
     except (json.JSONDecodeError, ValueError) as exc:
-        log.error("ExaFS /api/v3/rules/rtbh returned non-JSON response (status %d): %s — body: %.200s",
-                  resp.status_code, exc, resp.text)
+        log.error("ExaFS /api/v3/rules/rtbh returned non-JSON response (status %d): %s — body: %s",
+                  resp.status_code, exc, _sanitize_response_body(resp.text))
         sys.exit(1)
 
     if rule_id is None:
-        log.error("ExaFS did not return a rule id for %s — body: %.200s", ip_str, resp.text)
+        log.error("ExaFS did not return a rule id for %s — body: %s",
+                  ip_str, _sanitize_response_body(resp.text))
         sys.exit(1)
 
     with _rules_lock() as lf:
@@ -474,7 +490,7 @@ def unban(ip_str: str, exafs_url: str, api_key: str, dry_run: bool = False):
         try:
             resp.raise_for_status()
         except HTTPError as exc:
-            log.error("ExaFS error unbanning %s: %s — %s", ip_str, exc, resp.text)
+            log.error("ExaFS error unbanning %s: %s — %s", ip_str, exc, _sanitize_response_body(resp.text))
             sys.exit(1)
 
     log.info("Unbanned %s ← deleted ExaFS rule_id=%s", ip_str, rule_id)
