@@ -126,6 +126,33 @@ exafs_action.py --config /path/to/exafs.cfg ban 10.0.0.1 3600
 - File locking on `rules.json` for concurrent access
 - Logging to file, syslog, and stderr
 
+## Known Limitations
+
+### Rule deleted via ExaFS web UI
+If an RTBH rule is removed directly through the ExaFS web interface (or API),
+fail2ban is not notified — it still considers the IP banned until the bantime
+expires. To remove the ban from both sides, always use fail2ban:
+
+```bash
+fail2ban-client set <jail> unbanip <ip>
+```
+
+### IP added to whitelist while already banned
+Adding an IP to `exafs-whitelist.conf` prevents future bans but does **not**
+remove an existing active ban. If the IP is already blocked, remove it manually:
+
+```bash
+# 1. Remove from ExaFS via fail2ban (also clears local rules.json)
+fail2ban-client set <jail> unbanip <ip>
+
+# 2. The whitelist will then prevent it from being banned again
+```
+
+### Direct unban via exafs_action.py
+`exafs_action.py unban <ip>` removes the rule from ExaFS and local cache,
+but fail2ban's internal database is not updated. Use `fail2ban-client` instead
+unless you specifically need to clean up a stale ExaFS rule.
+
 ## Tests
 
 ```bash
